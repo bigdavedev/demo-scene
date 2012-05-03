@@ -45,6 +45,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case WM_CLOSE:
             PostQuitMessage(0);
             break;
+        case WM_KEYUP:
+            switch(wParam)
+            {
+            case VK_ESCAPE:
+                PostQuitMessage(0);
+                break;
+            }
+            break;
         default:
             return DefWindowProc(hWnd, message, wParam, lParam);
     }
