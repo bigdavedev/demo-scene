@@ -1,88 +1,130 @@
-#include <dave_stdlib.h>
-#include <dave_gl.h>
+#pragma data_seg(".name1")
+#pragma code_seg(".name2")
 
-LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+#include <windows.h>
+#include <gl/gl.h>
+#include <gl/glu.h>
+#include <glext.h>
+#include <wglext.h>
+
+//int _fltused = 0;
+
+#define USE_SHADERS
+
+#define SCREEN_X 640
+#define SCREEN_Y 480
+
+void WinMainCRTStartup();
+void setup_shaders(void);
+
+static const PIXELFORMATDESCRIPTOR pfd =
+{
+    sizeof(pfd),
+    0,
+    PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
+    PFD_TYPE_RGBA,
+    32,
+    0,0,0,0,0,0,
+    0,
+    0,
+    0,
+    0,0,0,0,
+    24,
+    8,
+    0,
+    PFD_MAIN_PLANE,
+    0,
+    0,0,0
+};
+
+#ifdef USE_SHADERS
+#ifndef NO_VERTEX_SHADER
+static char const* vertex_shader = \
+"void main(void)"
+"{"
+    "gl_Position=gl_Vertex;"
+"}";
+#endif // NO_VERTEX_SHADER
+static char const* frag_shader = \
+"void main()"
+"{"
+	"gl_FragColor=vec4(0.0f,0.3f,0.0f,1.0f);"
+"}";
+#endif
+
+//GLfloat light_pos[]= { 5.0f, 10.0f, -20.0f, 1.0f };
+
+static HDC device_context;
 
 void WinMainCRTStartup()
 {
-    ExitProcess(WinMain(GetModuleHandle(NULL), NULL, NULL, 0));
-}
+    device_context = GetDC(CreateWindow("static", 0, WS_POPUP|WS_VISIBLE, 0, 0, SCREEN_X, SCREEN_Y, 0, 0, 0, 0));
+    SetPixelFormat(device_context, ChoosePixelFormat(device_context, &pfd), &pfd);
+    wglMakeCurrent(device_context, wglCreateContext(device_context));
 
-BOOL keys[256];
+#ifdef USE_SHADERS
+    setup_shaders();
+#else
+    glClearColor(0.0f, 0.0f, 0.3f, 0.0f);
+#endif
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
-{
-    MSG msg = {0};
-    WNDCLASS wc = {0};
-    wc.lpfnWndProc = WndProc;
-    wc.hInstance = hInstance;
-    wc.hbrBackground = (HBRUSH) (COLOR_BACKGROUND);
-    wc.lpszClassName = "a";
-    if (FAILED(RegisterClass(&wc)))
-        return 1;
-
-    HWND window = CreateWindow(wc.lpszClassName, "BigDaveDev Demo-Skeleton (c)2012", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 0, 0, 640, 480, 0, 0, wc.hInstance, NULL);
-    if (window == NULL)
-        MessageBox(0, "Could not create the window!", 0, 0);
-
-    GL_init();
-
-    glViewport(0, 0, 640, 480);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-
-    // Calculate The Aspect Ratio Of The Window
-    gluPerspective(45.0f, (GLfloat)640 / (GLfloat)480, 0.1f, 100.0f);
-    glShadeModel(GL_SMOOTH);
-
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-
-    glClearColor(1.0f, 0.0f, 0.0f, 0.0f);
-
-    while (1)
+    while(!GetAsyncKeyState(VK_ESCAPE))
     {
-        if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
-        {
-            if (msg.message == WM_QUIT)
-                break;
-            else
-            {
-                TranslateMessage(&msg);
-                DispatchMessage(&msg);
-            }
-        }
-        else
-        {
-            if (keys[VK_ESCAPE])
-                break;
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            glLoadIdentity();
-
-            SwapBuffers(GL_get_device());
-        }
+#ifdef USE_SHADERS
+        glRects(-1, -1, 1, 1);
+#else
+        glClear(GL_COLOR_BUFFER_BIT);
+#endif
+        wglSwapLayerBuffers(device_context, WGL_SWAP_MAIN_PLANE);
     }
 
-    return 0;
+    ExitProcess(0);
 }
 
-LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+#ifdef USE_SHADERS
+void setup_shaders(void)
 {
+#ifdef DEBUG
+    int		result;
+    char    info[1536];
+#endif
 
-    switch (message)
-    {
-        case WM_CLOSE:
-            PostQuitMessage(0);
-            break;
-        case WM_KEYUP:
-            keys[wParam] = FALSE;
-            break;
-        case WM_KEYDOWN:
-            keys[wParam] = TRUE;
-            break;
-        default:
-            return DefWindowProc(hWnd, message, wParam, lParam);
-    }
-    return 0;
+    GLuint p, s;
+    p = ((PFNGLCREATEPROGRAMPROC)wglGetProcAddress("glCreateProgram")) ();
 
+#ifndef NO_VERTEX_SHADER
+    s = ((PFNGLCREATESHADERPROC) (wglGetProcAddress("glCreateShader"))) (GL_VERTEX_SHADER);
+    ((PFNGLSHADERSOURCEPROC)wglGetProcAddress("glShaderSource")) (s, 1, &vertex_shader, NULL);
+    ((PFNGLCOMPILESHADERPROC)wglGetProcAddress("glCompileShader")) (s);
+    ((PFNGLATTACHSHADERPROC)wglGetProcAddress("glAttachShader")) (p, s);
+#ifdef DEBUG
+    ((PFNGLGETOBJECTPARAMETERIVARBPROC)wglGetProcAddress("glGetObjectParameterivARB"))( s,   GL_OBJECT_COMPILE_STATUS_ARB, &result );
+    ((PFNGLGETINFOLOGARBPROC)wglGetProcAddress("glGetInfoLogARB"))( s,   1024, NULL, (char *)info );
+    if(!result)
+        MessageBox(0, info, 0, 0);
+#endif // DEBUG
+#endif // NO_VERTEX_SHADER
+
+    s = ((PFNGLCREATESHADERPROC)wglGetProcAddress("glCreateShader")) (GL_FRAGMENT_SHADER);
+    ((PFNGLSHADERSOURCEPROC)wglGetProcAddress("glShaderSource")) (s, 1, &frag_shader, NULL);
+    ((PFNGLCOMPILESHADERPROC)wglGetProcAddress("glCompileShader")) (s);
+    ((PFNGLATTACHSHADERPROC)wglGetProcAddress("glAttachShader")) (p, s);
+#ifdef DEBUG
+    ((PFNGLGETOBJECTPARAMETERIVARBPROC)wglGetProcAddress("glGetObjectParameterivARB"))( s,   GL_OBJECT_COMPILE_STATUS_ARB, &result );
+        MessageBox(0, "glGetObjectParameterivARB", 0, 0); 
+    ((PFNGLGETINFOLOGARBPROC)wglGetProcAddress("glGetInfoLogARB"))( s,   1024, NULL, (char *)info );
+        MessageBox(0, "glGetInfoLogARB", 0, 0);
+    if(!result)
+        MessageBox(0, info, 0, 0);
+#endif
+
+    ((PFNGLLINKPROGRAMARBPROC)wglGetProcAddress("glLinkProgramARB")) (p);
+    ((PFNGLUSEPROGRAMPROC)wglGetProcAddress("glUseProgram")) (p);
+#ifdef DEBUG
+    ((PFNGLGETOBJECTPARAMETERIVARBPROC)wglGetProcAddress("glGetObjectParameterivARB"))( p,   GL_OBJECT_LINK_STATUS_ARB, &result );
+    ((PFNGLGETINFOLOGARBPROC)wglGetProcAddress("glGetInfoLogARB"))( p,   1024, NULL, (char *)info );
+    if(!result)
+        MessageBox(0, info, 0, 0);
+#endif
 }
+#endif

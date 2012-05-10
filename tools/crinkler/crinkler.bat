@@ -1,3 +1,4 @@
-crinkler.exe /LIBPATH:"C:\Program Files\PellesC\Lib\Win" /LIBPATH:"C:\Program Files\PellesC\Lib\" /OUT:../../bin/demo-skeleton.exe ../../demo-skeleton/output/main.obj ../../demo-skeleton/output/dave_stdlib.obj ../../demo-skeleton/output/dave_gl.obj /RANGE:opengl32 gdi32.lib opengl32.lib glu32.lib winmm.lib kernel32.lib user32.lib /ENTRY:WinMainCRTStartup /REPORT:crinkler.htm /CRINKLER /PRIORITY:NORMAL /HASHSIZE:100 /HASHTRIES:300 /ORDERTRIES:5000 /SUBSYSTEM:WINDOWS /UNSAFEIMPORT /TRUNCATEFLOATS:16 /TRANSFORM:CALLS /PRINT:IMPORTS /PRINT:LABELS
-
+SET PATH=C:\Windows\System32;C:\Program Files\PellesC\Lib\Win;C:\Windows\System32;C:\Program Files\PellesC\Lib\;
+crinkler.exe /OUT:Intro.exe /HASHTRIES:300 /SUBSYSTEM:WINDOWS /UNSAFEIMPPORT /COMPMODE:SLOW /ORDERTRIES:7000 /TRUNCATEFLOATS:16 /PRINT:IMPORTS /ENTRY:WinMainCRTStartup /PRINT:LABELS /REPORT:report.html /RANGE:opengl32.dll kernel32.lib user32.lib winmm.lib gdi32.lib opengl32.lib glu32.lib ../../demo-skeleton/output/main.obj
+copy /B /Y Intro.exe ..\..\bin\Intro.exe
 pause
