@@ -10,13 +10,17 @@
 //int _fltused = 0;
 
 #define USE_SHADERS
+#define NO_VERTEX_SHADER
 
 #define SCREEN_X 640
 #define SCREEN_Y 480
 
+//#define DEBUG
+
 void WinMainCRTStartup();
 void setup_shaders(void);
 
+#pragma data_seg(".pfd")
 static const PIXELFORMATDESCRIPTOR pfd =
 {
     sizeof(pfd),
@@ -45,42 +49,68 @@ static char const* vertex_shader = \
     "gl_Position=gl_Vertex;"
 "}";
 #endif // NO_VERTEX_SHADER
-static char const* frag_shader = \
+#pragma data_seg(".shader")
+char* frag_shader = \
+"vec2 d = vec2(0.7,0.0);"
+"uniform float s;"
 "void main()"
 "{"
-	"gl_FragColor=vec4(0.0f,0.3f,0.0f,1.0f);"
+    "vec2 c=vec2(1.3*((gl_FragCoord.x/640.0)-0.5)*s-d.x, ((gl_FragCoord.y/480.0)-0.5)*s-d.y);"
+    "vec2 z=c;"
+    "int i;"
+    "for(i=0;i<70;i++)"
+    "{"
+        "float x=(z.x*z.x-z.y*z.y)+c.x;"
+        "float y=(z.y*z.x+z.x*z.y)+c.y;"
+
+        "if((x*x+y*y)>4.0)"
+            "break;"
+        "z.x=x;"
+        "z.y=y;"
+    "}"
+	"gl_FragColor=vec4((i==20?0.0:i)/100.0,0.0,0.0,1.0);"
 "}";
 #endif
 
-//GLfloat light_pos[]= { 5.0f, 10.0f, -20.0f, 1.0f };
+#pragma data_seg(".globals")
+HDC device_context;
+char texture[256*3];
+float scale = 5.0f;
+GLuint p;
 
-static HDC device_context;
-
+#pragma code_seg(".main")
 void WinMainCRTStartup()
 {
     device_context = GetDC(CreateWindow("static", 0, WS_POPUP|WS_VISIBLE, 0, 0, SCREEN_X, SCREEN_Y, 0, 0, 0, 0));
     SetPixelFormat(device_context, ChoosePixelFormat(device_context, &pfd), &pfd);
     wglMakeCurrent(device_context, wglCreateContext(device_context));
 
-#ifdef USE_SHADERS
-    setup_shaders();
-#else
-    glClearColor(0.0f, 0.0f, 0.3f, 0.0f);
-#endif
-
-    while(!GetAsyncKeyState(VK_ESCAPE))
+    for(int i = 0; i < 256*3; i++)
     {
-#ifdef USE_SHADERS
-        glRects(-1, -1, 1, 1);
-#else
-        glClear(GL_COLOR_BUFFER_BIT);
-#endif
-        wglSwapLayerBuffers(device_context, WGL_SWAP_MAIN_PLANE);
+        texture[i] = 0;
+        texture[++i] = 1;
+        texture[++i] = 2;
     }
+
+    setup_shaders();
+
+    do
+    {
+        //((PFNGLUSEPROGRAMPROC)wglGetProcAddress("glUseProgram")) (p);
+        if(GetAsyncKeyState(VK_F1))
+            scale += 0.005f;
+        if(GetAsyncKeyState(VK_F2))
+            scale -= 0.005f;
+        ((PFNGLUNIFORM1FPROC)wglGetProcAddress("glUniform1f"))
+            (((PFNGLGETUNIFORMLOCATIONPROC)wglGetProcAddress("glGetUniformLocation"))(p, "s"), scale);
+        glRects(-1, -1, 1, 1);
+        wglSwapLayerBuffers(device_context, WGL_SWAP_MAIN_PLANE);
+    }while(!GetAsyncKeyState(VK_ESCAPE));
 
     ExitProcess(0);
 }
 
+#pragma code_seg(".setup")
 #ifdef USE_SHADERS
 void setup_shaders(void)
 {
@@ -89,7 +119,7 @@ void setup_shaders(void)
     char    info[1536];
 #endif
 
-    GLuint p, s;
+    GLuint s;
     p = ((PFNGLCREATEPROGRAMPROC)wglGetProcAddress("glCreateProgram")) ();
 
 #ifndef NO_VERTEX_SHADER
