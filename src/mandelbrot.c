@@ -3,17 +3,14 @@
 
 #include <windows.h>
 #include <gl/gl.h>
-#include <gl/glu.h>
 #include <glext.h>
 #include <wglext.h>
 
 //int _fltused = 0;
 
+#define FULLSCREEN 1
 #define USE_SHADERS
 #define NO_VERTEX_SHADER
-
-#define SCREEN_X 640
-#define SCREEN_Y 480
 
 //#define DEBUG
 
@@ -21,7 +18,7 @@ void WinMainCRTStartup();
 void setup_shaders(void);
 
 #pragma data_seg(".pfd")
-static const PIXELFORMATDESCRIPTOR pfd =
+PIXELFORMATDESCRIPTOR pfd =
 {
     sizeof(pfd),
     0,
@@ -41,6 +38,9 @@ static const PIXELFORMATDESCRIPTOR pfd =
     0,0,0
 };
 
+#define SCREEN_X 800
+#define SCREEN_Y 600
+
 #ifdef USE_SHADERS
 #ifndef NO_VERTEX_SHADER
 static char const* vertex_shader = \
@@ -50,59 +50,59 @@ static char const* vertex_shader = \
 "}";
 #endif // NO_VERTEX_SHADER
 #pragma data_seg(".shader")
-char* frag_shader = \
-"vec2 d = vec2(0.7,0.0);"
-"uniform float s;"
+char const* frag_shader = \
+"uniform vec4 s;"
+"uniform vec2 d;"
 "void main()"
 "{"
-    "vec2 c=vec2(1.3*((gl_FragCoord.x/640.0)-0.5)*s-d.x, ((gl_FragCoord.y/480.0)-0.5)*s-d.y);"
+    "vec2 c=vec2(1.3*((gl_FragCoord.x/d.x)-0.5)*s.z-s.x,((gl_FragCoord.y/d.y)-0.5)*s.z-s.y);"
     "vec2 z=c;"
     "int i;"
-    "for(i=0;i<70;i++)"
+    "for(i=0;i<int(s.w);i++)"
     "{"
         "float x=(z.x*z.x-z.y*z.y)+c.x;"
         "float y=(z.y*z.x+z.x*z.y)+c.y;"
 
-        "if((x*x+y*y)>4.0)"
+        "if((x*x+y*y)>s.w)"
             "break;"
         "z.x=x;"
         "z.y=y;"
     "}"
-	"gl_FragColor=vec4((i==20?0.0:i)/100.0,0.0,0.0,1.0);"
+	"gl_FragColor=vec4((i==s.w?0.0:float(i))/s.w,0.0,0.0,1.0);"
 "}";
 #endif
 
 #pragma data_seg(".globals")
 HDC device_context;
-char texture[256*3];
-float scale = 5.0f;
+//char texture[256];
+#if FULLSCREEN
+float data[4] = {0.5f, 0.0f, 2.5f, 50.0f};
+#else
+float data[4] = {0.5f, 0.05f, 2.5f, 50.0f};
+#endif
+//int loop = 70;
 GLuint p;
 
 #pragma code_seg(".main")
 void WinMainCRTStartup()
 {
-    device_context = GetDC(CreateWindow("static", 0, WS_POPUP|WS_VISIBLE, 0, 0, SCREEN_X, SCREEN_Y, 0, 0, 0, 0));
+#if FULLSCREEN
+    device_context = GetDC(CreateWindow("edit", 0, WS_POPUP|WS_VISIBLE|WS_MAXIMIZE, 0, 0, 0, 0, 0, 0, 0, 0));
+    ShowCursor(FALSE);
+#else
+    device_context = GetDC(CreateWindow("static", "Mandelbrot in 1k - BigDaveDev(c)2012", WS_OVERLAPPED | WS_CAPTION | WS_THICKFRAME | WS_POPUP| WS_VISIBLE, 0, 0, 800, 600, 0, 0, 0, 0));
+#endif
     SetPixelFormat(device_context, ChoosePixelFormat(device_context, &pfd), &pfd);
     wglMakeCurrent(device_context, wglCreateContext(device_context));
-
-    for(int i = 0; i < 256*3; i++)
-    {
-        texture[i] = 0;
-        texture[++i] = 1;
-        texture[++i] = 2;
-    }
 
     setup_shaders();
 
     do
     {
-        //((PFNGLUSEPROGRAMPROC)wglGetProcAddress("glUseProgram")) (p);
-        if(GetAsyncKeyState(VK_F1))
-            scale += 0.005f;
-        if(GetAsyncKeyState(VK_F2))
-            scale -= 0.005f;
-        ((PFNGLUNIFORM1FPROC)wglGetProcAddress("glUniform1f"))
-            (((PFNGLGETUNIFORMLOCATIONPROC)wglGetProcAddress("glGetUniformLocation"))(p, "s"), scale);
+        ((PFNGLUNIFORM4FPROC)wglGetProcAddress("glUniform4f"))
+            (((PFNGLGETUNIFORMLOCATIONPROC)wglGetProcAddress("glGetUniformLocation"))(p, "s"), data[0], data[1], data[2], data[3]);
+        ((PFNGLUNIFORM2FPROC)wglGetProcAddress("glUniform2f"))
+            (((PFNGLGETUNIFORMLOCATIONPROC)wglGetProcAddress("glGetUniformLocation"))(p, "d"), GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
         glRects(-1, -1, 1, 1);
         wglSwapLayerBuffers(device_context, WGL_SWAP_MAIN_PLANE);
     }while(!GetAsyncKeyState(VK_ESCAPE));
@@ -112,7 +112,7 @@ void WinMainCRTStartup()
 
 #pragma code_seg(".setup")
 #ifdef USE_SHADERS
-void setup_shaders(void)
+__forceinline void setup_shaders(void)
 {
 #ifdef DEBUG
     int		result;
