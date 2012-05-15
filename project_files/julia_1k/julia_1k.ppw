@@ -5,6 +5,6 @@
 
 POC_WORKSPACE_VERSION = 1.00
 
-PROJECT = julia_1k.ppj
 PROJECT = ..\mandelbrot_1k\mandelbrot_1k.ppj
+PROJECT = julia_1k.ppj
 
